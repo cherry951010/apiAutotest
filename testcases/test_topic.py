@@ -33,6 +33,7 @@ def test_creat_topics():
     print(r.status_code)
     print(r.json())
 
+
 '''获取主题详情'''
 def test_detial_topic():
     id = tid['tid']

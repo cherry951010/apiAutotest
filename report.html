@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>report.html</h1>
+    <p>Report generated on 13-Jan-2021 at 10:53:13 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>JAVA_HOME</td>
+        <td>/Library/Java/JavaVirtualMachines/jdk-15.0.1.jdk/Contents/Home</td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "0.13.1", "py": "1.9.0", "pytest": "6.2.1"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>macOS-10.14.6-x86_64-i386-64bit</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "1.10.0", "ordering": "0.6"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.8.3</td></tr></table>
+    <h2>Summary</h2>
+    <p>4 tests ran in 0.56 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">4 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testcases/test_topic.py::test_creat_topics</td>
+          <td class="col-duration">0.08</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>200
+{&#x27;success&#x27;: True, &#x27;topic_id&#x27;: &#x27;5ffe609834062325f9a2455d&#x27;}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testcases/test_collect_topic.py::test_collect_topic</td>
+          <td class="col-duration">0.08</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>200
+{&#x27;success&#x27;: True}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testcases/test_topic.py::test_topics</td>
+          <td class="col-duration">0.11</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>200
+{&#x27;success&#x27;: True, &#x27;data&#x27;: [{&#x27;id&#x27;: &#x27;5ffe609834062325f9a2455d&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:53:12.623Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 0, &#x27;create_at&#x27;: &#x27;2021-01-13T02:53:12.623Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe607a34062325f9a2455a&#x27;, &#x27;author_id&#x27;: &#x27;5f2a19ec8255a634e747c4ee&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;接口就是有特定输入和特定输出的一套逻辑处理单元，\\n而它不用知道自身的内部实现逻辑，\\n这也可以叫做接口的黑盒处理逻辑。&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;接口是什么？&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:52:42.056Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 1, &#x27;create_at&#x27;: &#x27;2021-01-13T02:52:42.056Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;test86&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/c52f183554f01fe3702d6f3fb320f061?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe604334062325f9a24555&#x27;, &#x27;author_id&#x27;: &#x27;5f2a19ec8255a634e747c4ee&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;接口就是有特定输入和特定输出的一套逻辑处理单元，\n而它不用知道自身的内部实现逻辑，\n这也可以叫做接口的黑盒处理逻辑。&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;接口是什么？&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:51:47.182Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 1, &#x27;create_at&#x27;: &#x27;2021-01-13T02:51:47.182Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;test86&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/c52f183554f01fe3702d6f3fb320f061?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5fee34062325f9a24550&#x27;, &#x27;author_id&#x27;: &#x27;5f2a19ec8255a634e747c4ee&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;接口就是有特定输入和特定输出的一套逻辑处理单元，而它不用知道自身的内部实现逻辑，这也可以叫做接口的黑盒处理逻辑。&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;接口是什么？&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:50:22.110Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 1, &#x27;create_at&#x27;: &#x27;2021-01-13T02:50:22.110Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;test86&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/c52f183554f01fe3702d6f3fb320f061?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffd6b8534062325f9a21809&#x27;, &#x27;author_id&#x27;: &#x27;5ffd431cf5359a22db36feb1&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;因为自信给了他勇气。&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;解密tony高为什么帅？&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:49:40.955Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 286, &#x27;visit_count&#x27;: 51, &#x27;create_at&#x27;: &#x27;2021-01-12T09:27:33.853Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;49qi_test018&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/8c0cee4da227bcd345b00ede1504168f?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5e9334062325f9a24541&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:44:35.967Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 1, &#x27;create_at&#x27;: &#x27;2021-01-13T02:44:35.967Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5e6634062325f9a24540&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:43:50.434Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 1, &#x27;create_at&#x27;: &#x27;2021-01-13T02:43:50.434Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5e5834062325f9a2453f&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:43:36.597Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 1, &#x27;create_at&#x27;: &#x27;2021-01-13T02:43:36.597Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5e2934062325f9a2453d&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:42:49.719Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 0, &#x27;create_at&#x27;: &#x27;2021-01-13T02:42:49.719Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5d7834062325f9a24539&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:39:52.253Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 0, &#x27;create_at&#x27;: &#x27;2021-01-13T02:39:52.253Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5ce534062325f9a24536&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:37:25.969Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 0, &#x27;create_at&#x27;: &#x27;2021-01-13T02:37:25.969Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5ce534062325f9a24534&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:37:25.818Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 0, &#x27;create_at&#x27;: &#x27;2021-01-13T02:37:25.818Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5cdd34062325f9a24532&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:37:17.335Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 0, &#x27;create_at&#x27;: &#x27;2021-01-13T02:37:17.335Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5cdd34062325f9a24530&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:37:17.182Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 0, &#x27;create_at&#x27;: &#x27;2021-01-13T02:37:17.182Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5c9e34062325f9a2452e&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:36:14.627Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 1, &#x27;create_at&#x27;: &#x27;2021-01-13T02:36:14.627Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5c9e34062325f9a2452c&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:36:14.243Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 0, &#x27;create_at&#x27;: &#x27;2021-01-13T02:36:14.243Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5c4034062325f9a2452a&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:34:40.948Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 0, &#x27;create_at&#x27;: &#x27;2021-01-13T02:34:40.948Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5c0534062325f9a24529&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:33:41.658Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 0, &#x27;create_at&#x27;: &#x27;2021-01-13T02:33:41.658Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5bdc34062325f9a24528&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:33:00.502Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 0, &#x27;create_at&#x27;: &#x27;2021-01-13T02:33:00.502Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}, {&#x27;id&#x27;: &#x27;5ffe5bb834062325f9a24527&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:32:24.809Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 0, &#x27;create_at&#x27;: &#x27;2021-01-13T02:32:24.809Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}}]}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testcases/test_topic.py::test_detial_topic</td>
+          <td class="col-duration">0.07</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>200
+{&#x27;success&#x27;: True, &#x27;data&#x27;: {&#x27;id&#x27;: &#x27;5ffe609834062325f9a2455d&#x27;, &#x27;author_id&#x27;: &#x27;5fbb223106e8c0290c6fdc60&#x27;, &#x27;tab&#x27;: &#x27;ask&#x27;, &#x27;content&#x27;: &#x27;&lt;div class=&quot;markdown-text&quot;&gt;&lt;p&gt;cccccccccc&lt;/p&gt;\n&lt;/div&gt;&#x27;, &#x27;title&#x27;: &#x27;hellords&#x27;, &#x27;last_reply_at&#x27;: &#x27;2021-01-13T02:53:12.623Z&#x27;, &#x27;good&#x27;: False, &#x27;top&#x27;: False, &#x27;reply_count&#x27;: 0, &#x27;visit_count&#x27;: 1, &#x27;create_at&#x27;: &#x27;2021-01-13T02:53:12.623Z&#x27;, &#x27;author&#x27;: {&#x27;loginname&#x27;: &#x27;fanmao5&#x27;, &#x27;avatar_url&#x27;: &#x27;//gravatar.com/avatar/fc1363e5853d9049054d33b0838cf6fd?size=48&#x27;}, &#x27;replies&#x27;: [], &#x27;is_collect&#x27;: True}}
+<br/></div></td></tr></tbody></table></body></html>
