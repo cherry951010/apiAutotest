@@ -1,0 +1,5 @@
+test_data,status_code,expected_error_msg
+"{'accesstoken': '', 'title': 'hellords', 'tab': 'ask', 'content': 'cccccccccc'}",401,错误的accessToken
+"{'accesstoken': '2cd84376-cbee-4727-9e95-e1f2042dd8c1', 'title': '', 'tab': 'ask', 'content': 'cccccccccc'}",400,标题不能为空
+"{'accesstoken': '2cd84376-cbee-4727-9e95-e1f2042dd8c1', 'title': 'sfdsdf', 'tab': '', 'content': 'cccccccccc'}",400,必须选择一个版块
+"{'accesstoken': '2cd84376-cbee-4727-9e95-e1f2042dd8c1', 'title': 'asdfdsf', 'tab': 'ask', 'content': ''}",400,内容不可为空
