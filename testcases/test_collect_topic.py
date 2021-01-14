@@ -1,11 +1,11 @@
 import requests
 import pytest
-from config.config_data import accesstoken,tid
+from config.config_data import accesstoken,data
 
 '''收藏主题'''
 @pytest.mark.smoke
 def test_collect_topic():
-    id = tid['tid']
+    id = data['tid']
     collect_url =f'http://49.233.108.117:3000/api/v1/topic_collect/collect'
     collect_data = {
         'accesstoken':accesstoken,

@@ -1,6 +1,6 @@
 import requests
 import pytest
-from config.config_data import accesstoken,tid
+from config.config_data import accesstoken,data
 
 '''获取主题首页'''
 def test_topics():
@@ -16,6 +16,7 @@ def test_topics():
     print(r.json())
 
 '''新建主题'''
+@pytest.mark.tmp
 @pytest.mark.run(order=1)
 @pytest.mark.smoke
 def test_creat_topics():
@@ -27,7 +28,7 @@ def test_creat_topics():
         'content':'cccccccccc'
     }
     r = requests.post(url=creat_url,json=creat_data)
-    tid['tid'] = r.json()['topic_id']
+    data['tid'] = r.json()['topic_id']
     assert r.status_code == 200
     assert r.json()['success'] == True
     print(r.status_code)
@@ -36,7 +37,7 @@ def test_creat_topics():
 
 '''获取主题详情'''
 def test_detial_topic():
-    id = tid['tid']
+    id = data['tid']
     detial_url = f'http://49.233.108.117:3000/api/v1/topic/{id}'
     detial_data = {
         'accesstoken':accesstoken
